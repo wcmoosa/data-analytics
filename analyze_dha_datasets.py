@@ -14,17 +14,25 @@ DEPENDENCY INSTALLATION:
     pip install pandas matplotlib seaborn openpyxl
 
 HOW TO RUN THE SCRIPT:
-    python analyze_dha_datasets.py
+    Standard datasets:
+        python analyze_dha_datasets.py
+    
+    Big data datasets:
+        python analyze_dha_datasets.py --big-data
+        OR
+        python analyze_dha_datasets.py -b
 
 INPUT:
     Reads CSV files from the /data directory:
-    - population_registry.csv
-    - dha_applications.csv
+    - Standard: population_registry.csv, dha_applications.csv
+    - Big data: big_data_population_registry.csv, big_data_dha_applications.csv
 
 OUTPUT:
     Generates analysis reports and visualizations:
     - Analysis results printed to console
     - Chart images saved to /output directory
+    - Excel workbook with all analyses on separate sheets (dha_analysis_report.xlsx)
+      Each sheet includes formula documentation for all calculations
 
 ================================================================================
 """
@@ -33,7 +41,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import argparse
 from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 # Set style for better-looking plots
 sns.set_style("whitegrid")
@@ -48,23 +60,36 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 DATA_DIR = 'data'
 
 
-def load_datasets():
+def load_datasets(big_data: bool = False):
     """
     Load the population registry and applications datasets.
+    
+    Args:
+        big_data: If True, loads big_data_ prefixed files
     
     Returns:
         Tuple of (population_df, applications_df)
     """
-    population_path = os.path.join(DATA_DIR, 'population_registry.csv')
-    applications_path = os.path.join(DATA_DIR, 'dha_applications.csv')
+    prefix = 'big_data_' if big_data else ''
+    population_path = os.path.join(DATA_DIR, f'{prefix}population_registry.csv')
+    applications_path = os.path.join(DATA_DIR, f'{prefix}dha_applications.csv')
     
     if not os.path.exists(population_path):
-        raise FileNotFoundError(f"Population registry file not found: {population_path}")
+        raise FileNotFoundError(
+            f"Population registry file not found: {population_path}\n"
+            f"Please ensure the file exists or run generate_dha_datasets.py first."
+        )
     if not os.path.exists(applications_path):
-        raise FileNotFoundError(f"Applications file not found: {applications_path}")
+        raise FileNotFoundError(
+            f"Applications file not found: {applications_path}\n"
+            f"Please ensure the file exists or run generate_dha_datasets.py first."
+        )
     
-    print("Loading datasets...")
+    mode_label = "BIG DATA" if big_data else "STANDARD"
+    print(f"Loading {mode_label} datasets...")
+    print(f"  Reading: {population_path}")
     population_df = pd.read_csv(population_path)
+    print(f"  Reading: {applications_path}")
     applications_df = pd.read_csv(applications_path)
     
     # Convert date columns to datetime
@@ -79,13 +104,15 @@ def load_datasets():
     return population_df, applications_df
 
 
-def analyze_population_registry(population_df: pd.DataFrame):
+def analyze_population_registry(population_df: pd.DataFrame, big_data: bool = False):
     """
     Analyze population registry data and create visualizations.
     
     Args:
         population_df: Population registry DataFrame
+        big_data: If True, adds "big_data" prefix to output filenames
     """
+    prefix = 'big_data_' if big_data else ''
     print("="*70)
     print("POPULATION REGISTRY ANALYSIS")
     print("="*70)
@@ -123,8 +150,9 @@ def analyze_population_registry(population_df: pd.DataFrame):
                 ha='center', va='bottom', fontweight='bold')
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'population_gender_distribution.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/population_gender_distribution.png")
+    chart_filename = f'{prefix}population_gender_distribution.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     # 4. Born after 1975
@@ -148,20 +176,23 @@ def analyze_population_registry(population_df: pd.DataFrame):
     plt.legend()
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'population_birth_year_distribution.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/population_birth_year_distribution.png")
+    chart_filename = f'{prefix}population_birth_year_distribution.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     print("\n" + "-"*70)
 
 
-def analyze_applications(applications_df: pd.DataFrame):
+def analyze_applications(applications_df: pd.DataFrame, big_data: bool = False):
     """
     Analyze DHA applications data and create visualizations.
     
     Args:
         applications_df: Applications DataFrame
+        big_data: If True, adds "big_data" prefix to output filenames
     """
+    prefix = 'big_data_' if big_data else ''
     print("\n" + "="*70)
     print("DHA APPLICATIONS ANALYSIS")
     print("="*70)
@@ -190,8 +221,9 @@ def analyze_applications(applications_df: pd.DataFrame):
                 va='center', fontweight='bold')
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'applications_by_province.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/applications_by_province.png")
+    chart_filename = f'{prefix}applications_by_province.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     # 2. Application status distribution (with "Unknown" for None)
@@ -218,8 +250,9 @@ def analyze_applications(applications_df: pd.DataFrame):
                 ha='center', va='bottom', fontweight='bold', rotation=0)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'applications_by_status.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/applications_by_status.png")
+    chart_filename = f'{prefix}applications_by_status.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     # 3. Breakdown by branch
@@ -244,8 +277,9 @@ def analyze_applications(applications_df: pd.DataFrame):
                 va='center', fontweight='bold')
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'applications_by_branch.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/applications_by_branch.png")
+    chart_filename = f'{prefix}applications_by_branch.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     # 4. Cost breakdown
@@ -305,8 +339,9 @@ def analyze_applications(applications_df: pd.DataFrame):
     ax2_twin.legend(loc='upper right')
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'applications_cost_breakdown.png'), dpi=300)
-    print(f"   ✓ Saved chart: output/applications_cost_breakdown.png")
+    chart_filename = f'{prefix}applications_cost_breakdown.png'
+    plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+    print(f"   ✓ Saved chart: output/{chart_filename}")
     plt.close()
     
     # 5. Duplicate entries
@@ -343,13 +378,395 @@ def analyze_applications(applications_df: pd.DataFrame):
                     ha='center', va='bottom', fontweight='bold')
         
         plt.tight_layout()
-        plt.savefig(os.path.join(OUTPUT_DIR, 'applications_duplicates.png'), dpi=300)
-        print(f"   ✓ Saved chart: output/applications_duplicates.png")
+        chart_filename = f'{prefix}applications_duplicates.png'
+        plt.savefig(os.path.join(OUTPUT_DIR, chart_filename), dpi=300)
+        print(f"   ✓ Saved chart: output/{chart_filename}")
         plt.close()
     else:
         print("   No duplicate entries found.")
     
     print("\n" + "-"*70)
+
+
+def create_excel_analysis_report(population_df: pd.DataFrame, applications_df: pd.DataFrame,
+                                  big_data: bool = False):
+    """
+    Create a comprehensive Excel workbook with all analyses on separate sheets.
+    Each sheet includes formula documentation.
+    
+    Args:
+        population_df: Population registry DataFrame
+        applications_df: Applications DataFrame
+        big_data: If True, adds "big_data" prefix to output filename
+    """
+    prefix = 'big_data_' if big_data else ''
+    excel_path = os.path.join(OUTPUT_DIR, f'{prefix}dha_analysis_report.xlsx')
+    
+    print(f"\n📊 Creating Excel analysis report...")
+    
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default sheet
+    
+    # Define styles
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    formula_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # ============================================================================
+    # SHEET 1: Population Summary
+    # ============================================================================
+    ws1 = wb.create_sheet("Population Summary")
+    
+    total_population = len(population_df)
+    unique_population = population_df['sa_id_number'].nunique()
+    duplicates = total_population - unique_population
+    
+    data = [
+        ["Metric", "Value", "Formula"],
+        ["Total Population", total_population, "=COUNT(population_registry[sa_id_number])"],
+        ["Unique SA IDs", unique_population, "=COUNTA(UNIQUE(population_registry[sa_id_number]))"],
+        ["Duplicate SA IDs", duplicates, "=Total_Population - Unique_SA_IDs"],
+        ["Duplicate Percentage", f"{(duplicates/total_population)*100:.2f}%", "=(Duplicates/Total_Population)*100"],
+    ]
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws1.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:  # Header row
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 3:  # Formula column
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws1.column_dimensions['A'].width = 25
+    ws1.column_dimensions['B'].width = 20
+    ws1.column_dimensions['C'].width = 50
+    
+    # ============================================================================
+    # SHEET 2: Gender Distribution
+    # ============================================================================
+    ws2 = wb.create_sheet("Gender Distribution")
+    
+    gender_counts = population_df['gender'].value_counts()
+    data = [["Gender", "Count", "Percentage", "Formula"]]
+    
+    for gender, count in gender_counts.items():
+        percentage = (count / total_population) * 100
+        data.append([
+            gender,
+            count,
+            f"{percentage:.2f}%",
+            f"=COUNTIF(population_registry[gender],\"{gender}\") / Total_Population * 100"
+        ])
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws2.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 4:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws2.column_dimensions['A'].width = 15
+    ws2.column_dimensions['B'].width = 15
+    ws2.column_dimensions['C'].width = 15
+    ws2.column_dimensions['D'].width = 60
+    
+    # ============================================================================
+    # SHEET 3: Birth Year Analysis
+    # ============================================================================
+    ws3 = wb.create_sheet("Birth Year Analysis")
+    
+    born_after_1975 = population_df[population_df['date_of_birth'].dt.year > 1975]
+    count_after_1975 = len(born_after_1975)
+    count_before_1976 = total_population - count_after_1975
+    percentage_after_1975 = (count_after_1975 / total_population) * 100
+    
+    data = [
+        ["Metric", "Value", "Formula"],
+        ["Born After 1975", count_after_1975, "=COUNTIFS(population_registry[date_of_birth],\">1975-12-31\")"],
+        ["Born 1975 or Earlier", count_before_1976, "=Total_Population - Born_After_1975"],
+        ["Percentage Born After 1975", f"{percentage_after_1975:.2f}%", "=(Born_After_1975/Total_Population)*100"],
+    ]
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws3.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 3:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws3.column_dimensions['A'].width = 25
+    ws3.column_dimensions['B'].width = 20
+    ws3.column_dimensions['C'].width = 60
+    
+    # ============================================================================
+    # SHEET 4: Applications by Province
+    # ============================================================================
+    ws4 = wb.create_sheet("Applications by Province")
+    
+    total_applications = len(applications_df)
+    province_counts = applications_df['province'].value_counts().sort_values(ascending=False)
+    
+    data = [["Province", "Count", "Percentage", "Formula"]]
+    
+    for province, count in province_counts.items():
+        percentage = (count / total_applications) * 100
+        data.append([
+            province,
+            count,
+            f"{percentage:.2f}%",
+            f"=COUNTIF(dha_applications[province],\"{province}\") / Total_Applications * 100"
+        ])
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws4.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 4:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws4.column_dimensions['A'].width = 20
+    ws4.column_dimensions['B'].width = 15
+    ws4.column_dimensions['C'].width = 15
+    ws4.column_dimensions['D'].width = 60
+    
+    # ============================================================================
+    # SHEET 5: Application Status Distribution
+    # ============================================================================
+    ws5 = wb.create_sheet("Application Status")
+    
+    applications_df['status_display'] = applications_df['application_status'].fillna('Unknown')
+    status_counts = applications_df['status_display'].value_counts()
+    
+    data = [["Status", "Count", "Percentage", "Formula"]]
+    
+    for status, count in status_counts.items():
+        percentage = (count / total_applications) * 100
+        data.append([
+            status,
+            count,
+            f"{percentage:.2f}%",
+            f"=COUNTIF(dha_applications[application_status],\"{status}\") / Total_Applications * 100"
+        ])
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws5.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 4:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws5.column_dimensions['A'].width = 20
+    ws5.column_dimensions['B'].width = 15
+    ws5.column_dimensions['C'].width = 15
+    ws5.column_dimensions['D'].width = 60
+    
+    # ============================================================================
+    # SHEET 6: Applications by Branch
+    # ============================================================================
+    ws6 = wb.create_sheet("Applications by Branch")
+    
+    branch_counts = applications_df['dha_branch_name'].value_counts().head(15)
+    
+    data = [["Branch Name", "Count", "Percentage", "Formula"]]
+    
+    for branch, count in branch_counts.items():
+        percentage = (count / total_applications) * 100
+        data.append([
+            branch,
+            count,
+            f"{percentage:.2f}%",
+            f"=COUNTIF(dha_applications[dha_branch_name],\"{branch}\") / Total_Applications * 100"
+        ])
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws6.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 4:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws6.column_dimensions['A'].width = 25
+    ws6.column_dimensions['B'].width = 15
+    ws6.column_dimensions['C'].width = 15
+    ws6.column_dimensions['D'].width = 60
+    
+    # ============================================================================
+    # SHEET 7: Cost Breakdown
+    # ============================================================================
+    ws7 = wb.create_sheet("Cost Breakdown")
+    
+    # Calculate cost if not already present
+    if 'cost' not in applications_df.columns:
+        applications_df['cost'] = applications_df['application_type'].apply(
+            lambda x: 350 if x == 'ID Card' else 650
+        )
+    
+    cost_by_type = applications_df.groupby('application_type')['cost'].agg(['sum', 'count'])
+    total_revenue = applications_df['cost'].sum()
+    
+    data = [
+        ["Application Type", "Count", "Unit Price (ZAR)", "Total Revenue (ZAR)", "Formula"],
+        ["ID Card", 
+         int(cost_by_type.loc['ID Card', 'count']), 
+         350, 
+         int(cost_by_type.loc['ID Card', 'sum']),
+         "=COUNTIF(dha_applications[application_type],\"ID Card\") * 350"],
+        ["Passport", 
+         int(cost_by_type.loc['Passport', 'count']), 
+         650, 
+         int(cost_by_type.loc['Passport', 'sum']),
+         "=COUNTIF(dha_applications[application_type],\"Passport\") * 650"],
+        ["TOTAL", 
+         total_applications, 
+         "", 
+         int(total_revenue),
+         "=SUM(Revenue_Column)"],
+    ]
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws7.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 5:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            elif row_idx == len(data):  # Total row
+                cell.font = Font(bold=True)
+    
+    ws7.column_dimensions['A'].width = 20
+    ws7.column_dimensions['B'].width = 15
+    ws7.column_dimensions['C'].width = 20
+    ws7.column_dimensions['D'].width = 25
+    ws7.column_dimensions['E'].width = 50
+    
+    # ============================================================================
+    # SHEET 8: Duplicate Applications
+    # ============================================================================
+    ws8 = wb.create_sheet("Duplicate Applications")
+    
+    duplicate_sa_ids = applications_df[applications_df.duplicated(subset=['sa_id_number'], keep=False)]
+    duplicate_count = len(duplicate_sa_ids)
+    unique_duplicate_ids = duplicate_sa_ids['sa_id_number'].nunique() if duplicate_count > 0 else 0
+    
+    data = [
+        ["Metric", "Value", "Formula"],
+        ["Total Duplicate Records", duplicate_count, "=COUNTIF(duplicate_check,TRUE)"],
+        ["Unique SA IDs with Duplicates", unique_duplicate_ids, "=COUNTA(UNIQUE(duplicate_sa_ids))"],
+        ["Average Applications per Duplicate ID", 
+         f"{duplicate_count/unique_duplicate_ids:.2f}" if unique_duplicate_ids > 0 else "0",
+         "=Total_Duplicate_Records / Unique_Duplicate_IDs"],
+    ]
+    
+    if duplicate_count > 0:
+        top_duplicates = duplicate_sa_ids['sa_id_number'].value_counts().head(10)
+        data.append(["", "", ""])
+        data.append(["Top 10 SA IDs with Most Applications", "", ""])
+        
+        for sa_id, count in top_duplicates.items():
+            data.append([
+                sa_id,
+                count,
+                f"=COUNTIF(dha_applications[sa_id_number],\"{sa_id}\")"
+            ])
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws8.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1 or (row_idx <= 4 and col_idx <= 2):
+                if row_idx == 1:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                elif col_idx == 3:
+                    cell.fill = formula_fill
+                    cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            elif row_idx == 5:  # Sub-header
+                cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+                cell.font = Font(bold=True)
+    
+    ws8.column_dimensions['A'].width = 35
+    ws8.column_dimensions['B'].width = 20
+    ws8.column_dimensions['C'].width = 50
+    
+    # ============================================================================
+    # SHEET 9: Data Quality Issues
+    # ============================================================================
+    ws9 = wb.create_sheet("Data Quality Issues")
+    
+    pop_duplicates = len(population_df) - population_df['sa_id_number'].nunique()
+    pop_missing = population_df[['street_address', 'cell_number', 'postal_code', 'city']].isnull().sum().sum()
+    app_duplicates = len(applications_df[applications_df.duplicated(subset=['sa_id_number'], keep=False)])
+    app_missing_status = applications_df['application_status'].isnull().sum()
+    
+    data = [
+        ["Dataset", "Issue Type", "Count", "Formula"],
+        ["Population Registry", "Duplicate SA IDs", pop_duplicates, "=Total_Population - Unique_SA_IDs"],
+        ["Population Registry", "Missing Values", pop_missing, "=SUM(ISBLANK(population_registry[address_fields]))"],
+        ["Applications", "Duplicate Applications", app_duplicates, "=COUNTIF(duplicate_check,TRUE)"],
+        ["Applications", "Missing Status", app_missing_status, "=COUNTBLANK(dha_applications[application_status])"],
+    ]
+    
+    for row_idx, row in enumerate(data, 1):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws9.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = border
+            if row_idx == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            elif col_idx == 4:
+                cell.fill = formula_fill
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    
+    ws9.column_dimensions['A'].width = 20
+    ws9.column_dimensions['B'].width = 25
+    ws9.column_dimensions['C'].width = 15
+    ws9.column_dimensions['D'].width = 50
+    
+    # Save workbook
+    wb.save(excel_path)
+    print(f"✓ Excel analysis report saved: {excel_path}")
+    print(f"  Contains {len(wb.sheetnames)} analysis sheets with formula documentation")
 
 
 def generate_summary_report(population_df: pd.DataFrame, applications_df: pd.DataFrame):
@@ -401,20 +818,46 @@ def main():
     """
     Main function to run the analysis.
     """
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Analyze DHA synthetic datasets and generate visualizations',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze standard datasets
+  python analyze_dha_datasets.py
+  
+  # Analyze big data datasets
+  python analyze_dha_datasets.py --big-data
+  python analyze_dha_datasets.py -b
+        """
+    )
+    parser.add_argument(
+        '-b', '--big-data',
+        action='store_true',
+        help='Analyze big data datasets (big_data_* files) instead of standard datasets'
+    )
+    args = parser.parse_args()
+    
+    mode_label = "BIG DATA MODE" if args.big_data else "STANDARD MODE"
     print("="*70)
     print("DHA DATASET ANALYSIS AND VISUALIZATION")
     print("Department of Home Affairs - South Africa")
+    print(f"{mode_label}")
     print("="*70)
     
     try:
         # Load datasets
-        population_df, applications_df = load_datasets()
+        population_df, applications_df = load_datasets(big_data=args.big_data)
         
         # Analyze population registry
-        analyze_population_registry(population_df)
+        analyze_population_registry(population_df, big_data=args.big_data)
         
         # Analyze applications
-        analyze_applications(applications_df)
+        analyze_applications(applications_df, big_data=args.big_data)
+        
+        # Create Excel analysis report with all analyses and formulas
+        create_excel_analysis_report(population_df, applications_df, big_data=args.big_data)
         
         # Generate summary report
         generate_summary_report(population_df, applications_df)
